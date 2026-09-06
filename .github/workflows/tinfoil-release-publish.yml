@@ -1,0 +1,19 @@
+name: Tinfoil Release Publish
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  measure:
+    if: ${{ vars.STAGING_RELEASES_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Measure the configured image and publish its attested release
+        uses: tinfoilsh/measure-image-action@e9967c4a2dd60bacc7cce9e4315c5ebcd46118e9
+        with:
+          config-file: ${{ github.workspace }}/tinfoil-config.yml
+          github-token: ${{ github.token }}

@@ -1,0 +1,31 @@
+name: Tinfoil Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Staging release tag (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+permissions: {}
+jobs:
+  stage:
+    if: ${{ vars.STAGING_RELEASES_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - name: Validate and publish staging tag
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test -f tinfoil-config.yml
+          git tag "$VERSION" "$GITHUB_SHA"
+          git push origin "refs/tags/$VERSION"
+          gh workflow run tinfoil-release-publish.yml --ref "$VERSION"
