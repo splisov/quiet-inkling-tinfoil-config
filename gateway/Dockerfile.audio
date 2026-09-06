@@ -1,0 +1,26 @@
+# The builder index is immutable. Final image digest still needs release review.
+FROM --platform=$BUILDPLATFORM golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36 AS build
+ARG TARGETARCH
+ARG POLICY_ROOT
+ARG CAPABILITY_PUBLIC_KEY
+ARG ADMISSION_URL
+ENV GOTOOLCHAIN=local GOFLAGS=-tags=audioonly
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+# Explicit source allowlist: no synthesis, prompts, corpus, Android or secrets.
+COPY attested/http.go attested/policy.go attested/runtime.go ./attested/
+COPY gateway/audio.go gateway/capability.go gateway/text_disabled.go ./gateway/
+COPY cmd/ingress/main.go cmd/ingress/text_disabled.go ./cmd/ingress/
+COPY cmd/licenses/main.go ./cmd/licenses/
+RUN go run ./cmd/licenses > /notices.txt
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -buildvcs=false \
+    -ldflags="-s -w -X main.policyRoot=${POLICY_ROOT} -X main.capabilityPublicKey=${CAPABILITY_PUBLIC_KEY} -X main.admissionURL=${ADMISSION_URL}" \
+    -o /ingress ./cmd/ingress
+FROM scratch
+COPY --from=build /ingress /ingress
+COPY --from=build /notices.txt /licenses/third-party.txt
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+USER 65532:65532
+ENV GOMEMLIMIT=512MiB
+ENTRYPOINT ["/ingress"]

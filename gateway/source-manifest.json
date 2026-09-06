@@ -1,0 +1,16 @@
+{
+  "go.mod": "8516c82c3e9d3b01feb01192dd47918e59e3f572c0dae0f47c62f5d9280a9ed5",
+  "go.sum": "a82b3551fe7d580f03d1155c4df37bcdcffa797656ea384a130e2821e9dfdcfe",
+  "Dockerfile.audio": "1b4f2c566337fbbc8fda090388944ac76371322c9877a218169b3f2504fb8b09",
+  "attested/http.go": "3a2434bbc96e314816e2d84108de6f73eb8d7affe394f8e9581b87e1a6c24b0a",
+  "attested/policy.go": "a1d774197e2ca86d95b38f3f5f2251b92a0a63b8f1f52b729b6b07c6a2942795",
+  "attested/runtime.go": "c33fad71fff52246fde5b7b726bcc6e414ac15e54c92da43d02cc97a60e4056d",
+  "gateway/audio.go": "857597ad3060c980de26bb1e4a216e699cff4a8d01fb4242331d5f2f057f5ca4",
+  "gateway/capability.go": "b108d88225c986573d163ea27d235b6ab70f197529a1e2a3d9952775c2acc366",
+  "gateway/audio_test.go": "f1777f50aa031ca8946d2cc1730d1fcd3f66bec623c1140c6f5ca1c1498163c7",
+  "gateway/text_disabled.go": "55d915ce918bf0b76cbe5a929a5e99a5d49fae28699d34fcfcc2a96a76c9b041",
+  "cmd/ingress/audioonly_test.go": "22ff1af0a679c63b2dfdef4e78eb840c455377daff2a403b49066ac9b4579014",
+  "cmd/ingress/main.go": "31c7b2c84999157ce504790b20a77b684eec3b101fbd87ae8ae49d8792948a1d",
+  "cmd/ingress/text_disabled.go": "3330024331d13b4696793761052d750aa8a5eab6832b832ce325de480ea3ef9a",
+  "cmd/licenses/main.go": "3b191bbd11b32638f6d75631645b270830c7d39c31ae1fc53efa8912f465b7ae"
+}

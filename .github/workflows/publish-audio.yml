@@ -1,0 +1,63 @@
+name: Build audio-only staging image
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  publish:
+    if: github.repository == 'splisov/quiet-inkling-tinfoil-config' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/splisov/quiet-inkling-stt-public
+      POLICY_ROOT: 9lga3qR_Le3bWAO3H903E2aIJtDraZbBfsPmpgl2NFI
+      CAPABILITY_PUBLIC_KEY: CTKgSZKOHzbRmR3-ll8aFuEY-nTnYx-puE-QU46yBds
+      ADMISSION_URL: https://tablet-tarot-interpretation-proxy-staging.sergey-6a1.workers.dev
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          persist-credentials: false
+      - name: Verify exported source manifest
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('gateway')
+          for name, digest in json.loads((root / 'source-manifest.json').read_text()).items():
+              assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest, name
+          PY
+      - name: Test standalone audio build
+        run: |
+          docker run --rm -v "$PWD/gateway:/src:ro" -w /src \
+            golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36 \
+            sh -c 'go test -tags audioonly ./... && go vet -tags audioonly ./...'
+      - name: Build and check measured trust
+        run: |
+          docker build --platform linux/amd64 -f gateway/Dockerfile.audio \
+            --build-arg POLICY_ROOT --build-arg CAPABILITY_PUBLIC_KEY --build-arg ADMISSION_URL \
+            --label org.opencontainers.image.source=https://github.com/splisov/quiet-inkling-tinfoil-config \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            -t "$IMAGE:$GITHUB_SHA" gateway
+          docker run --rm --network none "$IMAGE:$GITHUB_SHA" public-config > /tmp/public-config.json
+          python3 - <<'PY'
+          import json, os
+          assert json.load(open('/tmp/public-config.json')) == {
+              'policy_root': os.environ['POLICY_ROOT'],
+              'capability_public_key': os.environ['CAPABILITY_PUBLIC_KEY'],
+              'admission_url': os.environ['ADMISSION_URL'],
+          }
+          PY
+      - name: Publish audio image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username splisov --password-stdin
+          docker push "$IMAGE:$GITHUB_SHA"
+          digest=$(docker image inspect "$IMAGE:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')
+          printf 'Audio-only staging image: `%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$digest"
+      - name: Remove runner credentials
+        if: always()
+        run: docker logout ghcr.io
