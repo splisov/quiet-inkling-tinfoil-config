@@ -1,0 +1,71 @@
+{
+  "cvm-version": "0.14.2",
+  "cpus": 2,
+  "memory": 8192,
+  "networks": {
+    "verified": {
+      "egress": "allowlist",
+      "allow": [
+        "github-proxy.tinfoil.sh",
+        "inference.tinfoil.sh",
+        "kdsintf.amd.com",
+        "tablet-tarot-interpretation-proxy-staging.sergey-6a1.workers.dev",
+        "tuf-repo-cdn.sigstore.dev"
+      ]
+    }
+  },
+  "containers": [
+    {
+      "name": "stt-ingress",
+      "image": "ghcr.io/splisov/quiet-inkling-stt-public@sha256:35808ea4335c422dc42b9f9671e4d849d483a1f4f1d0e08d398135ee40dd538f",
+      "user": "65532:65532",
+      "networks": [
+        "verified"
+      ],
+      "read_only": true,
+      "memory": "1g",
+      "cpus": 2,
+      "pids_limit": 256,
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": {
+        "/tmp": "size=32m,noexec,nosuid,nodev"
+      },
+      "secrets": [
+        "POLICY_ENVELOPE",
+        "INGRESS_SECRET",
+        "TINFOIL_API_KEY"
+      ],
+      "env": [
+        {
+          "GOMEMLIMIT": "512MiB"
+        },
+        {
+          "GOTRACEBACK": "none"
+        }
+      ],
+      "restart": "on-failure",
+      "stop_signal": "SIGTERM",
+      "stop_timeout": 10,
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "/ingress",
+          "healthcheck"
+        ],
+        "interval": "30s",
+        "timeout": "2s",
+        "retries": 3
+      }
+    }
+  ],
+  "shim": {
+    "upstream-container": "stt-ingress",
+    "upstream-port": 8080,
+    "paths": [
+      "/v1/audio",
+      "/healthz"
+    ]
+  }
+}
