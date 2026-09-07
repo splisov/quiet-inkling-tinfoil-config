@@ -5,12 +5,14 @@
   "attested/http.go": "3a2434bbc96e314816e2d84108de6f73eb8d7affe394f8e9581b87e1a6c24b0a",
   "attested/policy.go": "a1d774197e2ca86d95b38f3f5f2251b92a0a63b8f1f52b729b6b07c6a2942795",
   "attested/runtime.go": "c33fad71fff52246fde5b7b726bcc6e414ac15e54c92da43d02cc97a60e4056d",
-  "gateway/audio.go": "857597ad3060c980de26bb1e4a216e699cff4a8d01fb4242331d5f2f057f5ca4",
-  "gateway/capability.go": "b108d88225c986573d163ea27d235b6ab70f197529a1e2a3d9952775c2acc366",
-  "gateway/audio_test.go": "f1777f50aa031ca8946d2cc1730d1fcd3f66bec623c1140c6f5ca1c1498163c7",
+  "gateway/audio.go": "42c4d5df091d72c0a1857435f0e50520f632bfeff6ab5823a89773848899a922",
+  "gateway/capability.go": "d9b4b9529096a1361525ae35cb7155dc9c881d41825e606ff302fbf4bdc9e148",
+  "gateway/audio_test.go": "2fe6490d7dcc9480b32c47570bebd513aae1c29944cca18fa180d961b9c351b1",
+  "gateway/audio_lease.go": "2d5f40c7cc3aba878aec7d61969bad6b48e28e9977a590f79b89095d5eaf1f1b",
+  "gateway/audio_lease_test.go": "7087d015d285330b05e13b82223f8be87fde63230c12d3c2c1c78b7b3ca9d0c4",
   "gateway/text_disabled.go": "55d915ce918bf0b76cbe5a929a5e99a5d49fae28699d34fcfcc2a96a76c9b041",
   "cmd/ingress/audioonly_test.go": "22ff1af0a679c63b2dfdef4e78eb840c455377daff2a403b49066ac9b4579014",
-  "cmd/ingress/main.go": "31c7b2c84999157ce504790b20a77b684eec3b101fbd87ae8ae49d8792948a1d",
+  "cmd/ingress/main.go": "07643597dca11c1a99fd36b732db9beed2655d74319e7a21cb00a1c2b17dd18c",
   "cmd/ingress/text_disabled.go": "3330024331d13b4696793761052d750aa8a5eab6832b832ce325de480ea3ef9a",
   "cmd/licenses/main.go": "3b191bbd11b32638f6d75631645b270830c7d39c31ae1fc53efa8912f465b7ae"
 }

@@ -12,12 +12,15 @@ import (
 )
 
 type Capability struct {
-	ID            string `json:"id"`
-	AttemptID     string `json:"attempt_id,omitempty"`
-	Audience      string `json:"audience"`
-	Operation     string `json:"operation"`
-	ExpiresAt     int64  `json:"expires_at"`
-	MaxAudioBytes int    `json:"max_audio_bytes"`
+	ProtocolVersion int    `json:"protocol_version,omitempty"`
+	LeaseExpiresAt  int64  `json:"lease_expires_at,omitempty"`
+	LeaseSequence   int    `json:"lease_sequence,omitempty"`
+	ID              string `json:"id"`
+	AttemptID       string `json:"attempt_id,omitempty"`
+	Audience        string `json:"audience"`
+	Operation       string `json:"operation"`
+	ExpiresAt       int64  `json:"expires_at"`
+	MaxAudioBytes   int    `json:"max_audio_bytes"`
 }
 
 func VerifyCapability(token string, key ed25519.PublicKey, audience, operation string, now time.Time) (Capability, error) {
@@ -37,6 +40,12 @@ func VerifyCapability(token string, key ed25519.PublicKey, audience, operation s
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&cap) != nil || decoder.Decode(new(any)) != io.EOF || len(cap.ID) != 36 || cap.Audience != audience || cap.Operation != operation || cap.ExpiresAt <= now.Unix() || cap.ExpiresAt > now.Unix()+90 {
+		return cap, attested.ErrUnavailable
+	}
+	if cap.ProtocolVersion == 0 && (cap.LeaseExpiresAt != 0 || cap.LeaseSequence != 0) {
+		return cap, attested.ErrUnavailable
+	}
+	if cap.ProtocolVersion != 0 && (operation != "audio" || cap.ProtocolVersion != 2 || cap.LeaseSequence != 0 || cap.LeaseExpiresAt < cap.ExpiresAt || cap.LeaseExpiresAt > now.Unix()+90) {
 		return cap, attested.ErrUnavailable
 	}
 	if operation == "audio" && (cap.MaxAudioBytes < 2 || cap.MaxAudioBytes > 960000) {
