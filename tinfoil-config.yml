@@ -17,7 +17,7 @@
   "containers": [
     {
       "name": "stt-ingress",
-      "image": "ghcr.io/splisov/quiet-inkling-stt-public@sha256:35808ea4335c422dc42b9f9671e4d849d483a1f4f1d0e08d398135ee40dd538f",
+      "image": "ghcr.io/splisov/quiet-inkling-stt-public@sha256:3e042cc66cf4decd51f8f6d06b4ebbcc2bb7f340a49a196a311429e1a12fec82",
       "user": "65532:65532",
       "networks": [
         "verified"
@@ -62,6 +62,7 @@
     "upstream-port": 8080,
     "paths": [
       "/v1/audio",
+      "/v2/audio",
       "/healthz"
     ]
   }
