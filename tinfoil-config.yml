@@ -26,9 +26,6 @@
       "memory": "1g",
       "cpus": 2,
       "pids_limit": 256,
-      "security_opt": [
-        "no-new-privileges:true"
-      ],
       "tmpfs": {
         "/tmp": "size=32m,noexec,nosuid,nodev"
       },
