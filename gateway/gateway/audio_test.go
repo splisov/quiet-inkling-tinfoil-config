@@ -247,3 +247,20 @@ func TestBlockedAudioEventWriteHasItsOwnDeadline(t *testing.T) {
 		t.Fatal("write waited for policy expiry")
 	}
 }
+
+func TestContinuousAdmissionAllowsBoundedBrokerClockLead(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+	const brokerNow int64 = 1800000000
+	cap := Capability{ID: "12345678-1234-1234-1234-123456789abc", Audience: "ingress.example", Operation: "audio", ExpiresAt: brokerNow + 60, LeaseExpiresAt: brokerNow + 60, ProtocolVersion: 2, MaxAudioBytes: 960000}
+	raw, _ := json.Marshal(cap)
+	payload := base64.RawURLEncoding.EncodeToString(raw)
+	token := payload + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("quiet-inkling-capability-v1."+payload)))
+	for skew := int64(-5); skew <= 5; skew++ {
+		if _, err := VerifyCapability(token, pub, "ingress.example", "audio", time.Unix(brokerNow-skew, 0)); err != nil {
+			t.Fatalf("admission skew %d rejected: %v", skew, err)
+		}
+	}
+	if _, err := VerifyCapability(token, pub, "ingress.example", "audio", time.Unix(brokerNow-6, 0)); err == nil {
+		t.Fatal("out-of-bound future lease accepted")
+	}
+}

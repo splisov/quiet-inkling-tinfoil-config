@@ -31,12 +31,12 @@ func TestAudioLeaseReservesAheadWithoutChargingIdleHeartbeats(t *testing.T) {
 	if a.consume(1920000, 1022) {
 		t.Fatal("overspend")
 	}
-	if a.consume(2, 1080) {
+	if a.consume(2, 1075) {
 		t.Fatal("expired lease")
 	}
 }
 func TestAudioLeaseRejectsRollbackReplayAndLateRenewal(t *testing.T) {
-	cases := []AudioLease{{true, 0, 1080, 1920000}, {true, 1, 1081, 1920000}, {true, 1, 1080, 960000}, {false, 1, 1080, 1920000}}
+	cases := []AudioLease{{true, 1, -1 << 63, 1920000}, {true, 0, 1080, 1920000}, {true, 1, 1086, 1920000}, {true, 1, 1080, 960000}, {false, 1, 1080, 1920000}}
 	for _, lease := range cases {
 		a := &audioAuthority{limit: 960000, expires: 1060}
 		if a.accept(lease, 1, 60, 1020) == nil {
@@ -57,5 +57,28 @@ func TestFailedRenewalWarnsBeforePriorAuthorityEnds(t *testing.T) {
 	err := a.maintain(ctx, "original", func(context.Context, string, int, int) (AudioLease, error) { return AudioLease{}, errors.New("denied") }, func() error { warned = true; cancel(); return nil })
 	if !warned || err == nil || a.limit != 960000 || a.sequence != 0 {
 		t.Fatal("denial extended authority or failed to warn")
+	}
+}
+
+func TestAudioLeaseClockSkewNeverExtendsBrokerAuthority(t *testing.T) {
+	const brokerNow int64 = 1020
+	for skew := int64(-5); skew <= 5; skew++ {
+		enclaveNow := brokerNow - skew
+		a := &audioAuthority{limit: 960000, expires: 1060 - audioClockSkewSeconds}
+		if err := a.accept(AudioLease{true, 1, brokerNow + 60, 1920000}, 1, 60, enclaveNow); err != nil {
+			t.Fatalf("skew %d rejected: %v", skew, err)
+		}
+		// At broker expiry, the enclave clock equals broker time minus skew. The
+		// local execution deadline must already have passed, never extend the lease.
+		if a.consume(2, brokerNow+60-skew) {
+			t.Fatalf("skew %d outlived broker", skew)
+		}
+		if a.expires != brokerNow+60-audioClockSkewSeconds {
+			t.Fatal("missing conservative margin")
+		}
+	}
+	a := &audioAuthority{limit: 960000, expires: 1060}
+	if a.accept(AudioLease{true, 1, brokerNow + 60, 1920000}, 1, 60, brokerNow-6) == nil {
+		t.Fatal("future clock skew outside bound accepted")
 	}
 }

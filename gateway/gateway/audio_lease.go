@@ -17,6 +17,12 @@ type AudioLease struct {
 }
 type RenewAudio func(context.Context, string, int, int) (AudioLease, error)
 
+// Broker and enclave clocks can differ. Never use the tolerance to extend paid
+// authority: subtract the whole envelope from the broker's absolute expiry.
+// If enclave time lags broker time by at most this margin, the resulting local
+// deadline occurs no later than the broker's own concurrency expiry.
+const audioClockSkewSeconds int64 = 5
+
 const audioBytesPerSecond = 32000
 const audioSessionMaxBytes = 1500 * audioBytesPerSecond
 
@@ -51,11 +57,11 @@ func (a *audioAuthority) request() (int, int) {
 func (a *audioAuthority) accept(lease AudioLease, sequence, seconds int, now int64) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !lease.Allowed || sequence != a.sequence+1 || lease.Sequence != sequence || lease.ExpiresAt <= now || lease.ExpiresAt > now+60 || lease.MaxAudioBytes != seconds*audioBytesPerSecond || lease.MaxAudioBytes < a.limit || lease.MaxAudioBytes > audioSessionMaxBytes || now >= a.expires {
+	if !lease.Allowed || sequence != a.sequence+1 || lease.Sequence != sequence || lease.ExpiresAt <= now+audioClockSkewSeconds || lease.ExpiresAt > now+60+audioClockSkewSeconds || lease.MaxAudioBytes != seconds*audioBytesPerSecond || lease.MaxAudioBytes < a.limit || lease.MaxAudioBytes > audioSessionMaxBytes || now >= a.expires {
 		return errors.New("invalid audio lease")
 	}
 	a.sequence = sequence
-	a.expires = lease.ExpiresAt
+	a.expires = lease.ExpiresAt - audioClockSkewSeconds
 	a.limit = lease.MaxAudioBytes
 	return nil
 }

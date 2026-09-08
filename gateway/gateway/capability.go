@@ -45,7 +45,7 @@ func VerifyCapability(token string, key ed25519.PublicKey, audience, operation s
 	if cap.ProtocolVersion == 0 && (cap.LeaseExpiresAt != 0 || cap.LeaseSequence != 0) {
 		return cap, attested.ErrUnavailable
 	}
-	if cap.ProtocolVersion != 0 && (operation != "audio" || cap.ProtocolVersion != 2 || cap.LeaseSequence != 0 || cap.LeaseExpiresAt < cap.ExpiresAt || cap.LeaseExpiresAt > now.Unix()+90) {
+	if cap.ProtocolVersion != 0 && (operation != "audio" || cap.ProtocolVersion != 2 || cap.LeaseSequence != 0 || cap.LeaseExpiresAt < cap.ExpiresAt || cap.LeaseExpiresAt > now.Unix()+60+audioClockSkewSeconds) {
 		return cap, attested.ErrUnavailable
 	}
 	if operation == "audio" && (cap.MaxAudioBytes < 2 || cap.MaxAudioBytes > 960000) {

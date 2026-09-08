@@ -115,7 +115,7 @@ func audioHandlerWithRenewal(host string, key ed25519.PublicKey, claim Claim, co
 			return
 		}
 		continuous := r.URL.Path == "/v2/audio"
-		if continuous != (capability.ProtocolVersion == 2) || (continuous && (renew == nil || policyExpires <= time.Now().Unix()+30 || capability.LeaseExpiresAt <= time.Now().Unix()+30)) {
+		if continuous != (capability.ProtocolVersion == 2) || (continuous && (renew == nil || policyExpires-audioClockSkewSeconds <= time.Now().Unix()+30 || capability.LeaseExpiresAt-audioClockSkewSeconds <= time.Now().Unix()+30)) {
 			http.Error(w, "unsupported audio protocol", 403)
 			return
 		}
@@ -123,8 +123,8 @@ func audioHandlerWithRenewal(host string, key ed25519.PublicKey, claim Claim, co
 		var authority *audioAuthority
 		if continuous {
 			cancel()
-			ctx, cancel = context.WithDeadline(r.Context(), time.Unix(policyExpires, 0))
-			authority = &audioAuthority{limit: capability.MaxAudioBytes, expires: capability.LeaseExpiresAt}
+			ctx, cancel = context.WithDeadline(r.Context(), time.Unix(policyExpires-audioClockSkewSeconds, 0))
+			authority = &audioAuthority{limit: capability.MaxAudioBytes, expires: capability.LeaseExpiresAt - audioClockSkewSeconds}
 		}
 		defer cancel()
 		// Durable admission consumes this ID before any paid upstream connection.
