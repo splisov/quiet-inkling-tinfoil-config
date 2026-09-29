@@ -12,7 +12,7 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/splisov/quiet-inkling-stt-public
-      POLICY_ROOT: 9lga3qR_Le3bWAO3H903E2aIJtDraZbBfsPmpgl2NFI
+      POLICY_ROOT: OaL29wg7k1_Dj9qr436xKIFho6OdIpaoZp--jkhHfFE
       CAPABILITY_PUBLIC_KEY: CTKgSZKOHzbRmR3-ll8aFuEY-nTnYx-puE-QU46yBds
       ADMISSION_URL: https://tablet-tarot-interpretation-proxy-staging.sergey-6a1.workers.dev
     steps:
