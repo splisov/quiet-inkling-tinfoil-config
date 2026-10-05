@@ -17,7 +17,7 @@
   "containers": [
     {
       "name": "stt-ingress",
-      "image": "ghcr.io/splisov/quiet-inkling-stt-public@sha256:ca60e2feac356a12fcdeaed781a74d24d3c1299338a889175810735509ad9d24",
+      "image": "ghcr.io/splisov/quiet-inkling-stt-public@sha256:342e6901d119f4c835dca859d4b3884d5de247818a0f7700527b69940e9fa22d",
       "user": "65532:65532",
       "networks": [
         "verified"
