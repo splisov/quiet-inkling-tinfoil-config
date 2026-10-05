@@ -10,7 +10,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 # Explicit source allowlist: no synthesis, prompts, corpus, Android or secrets.
 COPY attested/http.go attested/policy.go attested/runtime.go ./attested/
-COPY gateway/audio.go gateway/audio_lease.go gateway/capability.go gateway/text_disabled.go ./gateway/
+COPY gateway/audio.go gateway/audio_lease.go gateway/broker_claim.go gateway/broker_audio_renew.go gateway/capability.go gateway/text_disabled.go ./gateway/
 COPY cmd/ingress/main.go cmd/ingress/text_disabled.go ./cmd/ingress/
 COPY cmd/licenses/main.go ./cmd/licenses/
 RUN go run ./cmd/licenses > /notices.txt

@@ -113,33 +113,16 @@ func run() error {
 	complete := func(ctx context.Context, token string, benefit bool) error {
 		return call(ctx, "complete", token, benefit)
 	}
-	renew := func(ctx context.Context, token string, sequence, seconds int) (gateway.AudioLease, error) {
-		var lease gateway.AudioLease
-		body, _ := json.Marshal(map[string]any{"capability": token, "sequence": sequence, "audio_seconds": seconds})
-		req, err := http.NewRequestWithContext(ctx, "POST", broker.Scheme+"://"+broker.Host+"/internal/private/renew", bytes.NewReader(body))
-		if err != nil {
-			return lease, err
-		}
-		req.Header.Set("Authorization", "Bearer "+secret)
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-		if err != nil {
-			return lease, attested.ErrUnavailable
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			return lease, attested.ErrUnavailable
-		}
-		decoder := json.NewDecoder(io.LimitReader(resp.Body, 4096))
-		if decoder.Decode(&lease) != nil || decoder.Decode(new(any)) != io.EOF {
-			return lease, attested.ErrUnavailable
-		}
-		return lease, nil
-	}
+	// Audio metadata waits have independent finite caps. Legacy text and all
+	// completion calls keep the original three-second client above.
+	audioClaimClient := &http.Client{Timeout: 30 * time.Second, CheckRedirect: client.CheckRedirect}
+	audioRenewClient := &http.Client{Timeout: 60 * time.Second, CheckRedirect: client.CheckRedirect}
+	audioClaim := gateway.NewBrokerClaim(audioClaimClient, broker.Scheme+"://"+broker.Host, secret)
+	audioRenew := gateway.NewBrokerAudioRenew(audioRenewClient, broker.Scheme+"://"+broker.Host, secret)
 	mux := http.NewServeMux()
 	enabled := 0
 	if _, e := policy.Endpoint("audioIngress"); e == nil {
-		audio, e := gateway.NewAudioHandler(policy, ed25519.PublicKey(key), os.Getenv("TINFOIL_API_KEY"), claim, complete, renew)
+		audio, e := gateway.NewAudioHandler(policy, ed25519.PublicKey(key), os.Getenv("TINFOIL_API_KEY"), audioClaim, complete, audioRenew)
 		if e != nil {
 			return e
 		}

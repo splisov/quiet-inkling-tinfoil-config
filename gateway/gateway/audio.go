@@ -127,8 +127,20 @@ func audioHandlerWithRenewal(host string, key ed25519.PublicKey, claim Claim, co
 			authority = &audioAuthority{limit: capability.MaxAudioBytes, expires: capability.LeaseExpiresAt - audioClockSkewSeconds}
 		}
 		defer cancel()
+		startup := ctx
+		startupDone := func() {}
+		if authority != nil {
+			// Startup may not outlive the original capability, even though the
+			// established stream can renew within the policy parent.
+			expires := capability.LeaseExpiresAt - audioClockSkewSeconds
+			if capability.ExpiresAt < expires {
+				expires = capability.ExpiresAt
+			}
+			startup, startupDone = context.WithDeadline(ctx, time.Unix(expires, 0))
+		}
+		defer startupDone()
 		// Durable admission consumes this ID before any paid upstream connection.
-		if claim(ctx, token) != nil {
+		if claim(startup, token) != nil || !audioContextCurrent(startup) {
 			http.Error(w, "already consumed or unavailable", 409)
 			return
 		}
@@ -138,17 +150,25 @@ func audioHandlerWithRenewal(host string, key ed25519.PublicKey, claim Claim, co
 			defer done()
 			_ = complete(cleanup, token, successful)
 		}()
-		upstream, e := dial(ctx)
+		if authority != nil && !authority.startupHeadroom(ctx, audioEndingHorizonSeconds) {
+			http.Error(w, "already consumed or unavailable", 409)
+			return
+		}
+		upstream, e := dial(startup)
 		if e != nil {
 			http.Error(w, "unavailable", 503)
 			return
 		}
 		defer upstream.CloseNow()
+		if !audioContextCurrent(startup) || (authority != nil && !authority.startupHeadroom(ctx, audioEndingHorizonSeconds+int64(audioMessageTimeout/time.Second))) {
+			http.Error(w, "unavailable", 503)
+			return
+		}
 		upstream.SetReadLimit(48 * 1024)
 		if continuous {
 			upstream.SetReadLimit(256 * 1024)
 		}
-		downstream, e := websocket.Accept(w, r, &websocket.AcceptOptions{CompressionMode: websocket.CompressionDisabled})
+		downstream, e := websocket.Accept(w, r.WithContext(startup), &websocket.AcceptOptions{CompressionMode: websocket.CompressionDisabled})
 		if e != nil {
 			return
 		}
@@ -165,10 +185,14 @@ func audioHandlerWithRenewal(host string, key ed25519.PublicKey, claim Claim, co
 			wireReceipt = string(raw)
 		}
 		if wireReceipt != "" {
-			if writeAudioMessage(ctx, downstream, websocket.MessageText, []byte(wireReceipt)) != nil {
+			if !audioContextCurrent(startup) || (authority != nil && !authority.startupHeadroom(ctx, audioEndingHorizonSeconds+int64(audioMessageTimeout/time.Second))) || writeAudioMessage(startup, downstream, websocket.MessageText, []byte(wireReceipt)) != nil {
 				return
 			}
 		}
+		if !audioContextCurrent(startup) || (authority != nil && !authority.startupHeadroom(ctx, audioEndingHorizonSeconds)) {
+			return
+		}
+		startupDone() // Stream lifetime remains policy-bound; only startup used the initial lease.
 		// One model-scoped session per connection, established by the verified dialer.
 		committed := new(atomic.Bool)
 		failures := make(chan error, 3)
@@ -176,7 +200,14 @@ func audioHandlerWithRenewal(host string, key ed25519.PublicKey, claim Claim, co
 		if authority != nil {
 			loops++
 			go func() {
-				failures <- authority.maintain(ctx, token, renew, func() error { return writeEvent(ctx, downstream, "notice", "authorization_ending") })
+				failures <- authority.maintain(ctx, token, renew, func() error {
+					notice, done := authority.paidContext(ctx)
+					defer done()
+					if !audioContextCurrent(notice) {
+						return errors.New("audio lease expired")
+					}
+					return writeEvent(notice, downstream, "notice", "authorization_ending")
+				})
 			}()
 		}
 		go func() {
@@ -186,7 +217,15 @@ func audioHandlerWithRenewal(host string, key ed25519.PublicKey, claim Claim, co
 		first := <-failures
 		successful = first == nil
 		if first != nil {
-			writeEvent(ctx, downstream, "error", "")
+			failureContext := ctx
+			failureDone := func() {}
+			if authority != nil {
+				failureContext, failureDone = authority.paidContext(ctx)
+			}
+			if audioContextCurrent(failureContext) {
+				writeEvent(failureContext, downstream, "error", "")
+			}
+			failureDone()
 		}
 		cancel()
 		upstream.CloseNow()
@@ -310,7 +349,7 @@ func writeEvent(ctx context.Context, conn *websocket.Conn, kind, text string) er
 // A stalled peer cannot hold a lease, cancellation, or finalization open until
 // policy expiry. coder/websocket closes the connection when this deadline fires.
 func writeAudioMessage(parent context.Context, conn *websocket.Conn, kind websocket.MessageType, raw []byte) error {
-	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
+	ctx, cancel := context.WithTimeout(parent, audioMessageTimeout)
 	defer cancel()
 	return conn.Write(ctx, kind, raw)
 }
