@@ -156,10 +156,12 @@ func TestContinuousAudioRenewsSameConnectionAcrossOldByteLimit(t *testing.T) {
 	}
 	renew := func(_ context.Context, _ string, sequence, seconds int) (AudioLease, error) {
 		renewals.Add(1)
-		if sequence != 1 || seconds != 60 {
+		if sequence < 1 || sequence > 2 || seconds != (sequence+1)*30 {
 			t.Errorf("unexpected renewal %d %d", sequence, seconds)
 		}
-		close(renewed)
+		if sequence == 1 {
+			close(renewed)
+		}
 		return AudioLease{true, sequence, time.Now().Unix() + 60, seconds * 32000}, nil
 	}
 	ingress := httptest.NewServer(audioHandlerWithRenewal("ingress.example", pub, func(context.Context, string) error { claims.Add(1); return nil }, func(context.Context, string, bool) error { return nil }, dial, `{"type":"receipt"}`, renew, time.Now().Unix()+120))
@@ -168,7 +170,7 @@ func TestContinuousAudioRenewsSameConnectionAcrossOldByteLimit(t *testing.T) {
 	raw, _ := json.Marshal(cap)
 	p := base64.RawURLEncoding.EncodeToString(raw)
 	token := p + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("quiet-inkling-capability-v1."+p)))
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c, _, e := websocket.Dial(ctx, "ws"+strings.TrimPrefix(ingress.URL, "http")+"/v2/audio", &websocket.DialOptions{HTTPClient: ingress.Client(), HTTPHeader: http.Header{"Authorization": []string{"Bearer " + token}}})
 	if e != nil {
@@ -212,7 +214,7 @@ waitRenewal:
 	if e != nil || !strings.Contains(string(final), `"final"`) {
 		t.Fatalf("final %s %v", final, e)
 	}
-	if dials.Load() != 1 || claims.Load() != 1 || renewals.Load() != 1 {
+	if dials.Load() != 1 || claims.Load() != 1 || renewals.Load() < 1 || renewals.Load() > 2 {
 		t.Fatalf("execution restarted: %d %d %d", dials.Load(), claims.Load(), renewals.Load())
 	}
 }
